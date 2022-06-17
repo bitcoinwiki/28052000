@@ -1465,4 +1465,4 @@ communication:
 
   Note: This last convention isn't generally followed outside of
   [`src/interfaces/`](../src/interfaces/), though it did come up for discussion
-  before in [#14635](https://github.com/bitcoin/bitcoin/pull/14635).
+  before in [#14635](https://github.com/uvhw/bitcoin/pull/14635).
