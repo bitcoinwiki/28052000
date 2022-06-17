@@ -1,15 +1,17 @@
 // Copyright (c) 2014 BitPay Inc.
 // Copyright (c) 2014-2016 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or https://opensource.org/licenses/mit-license.php.
 
-#include <stdint.h>
-#include <vector>
-#include <string>
-#include <map>
-#include <cassert>
-#include <stdexcept>
 #include <univalue.h>
+
+#include <cassert>
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 #define BOOST_FIXTURE_TEST_SUITE(a, b)
 #define BOOST_AUTO_TEST_CASE(funcName) void funcName()
@@ -19,9 +21,10 @@
 #define BOOST_CHECK_THROW(stmt, excMatch) { \
         try { \
             (stmt); \
+            assert(0 && "No exception caught"); \
         } catch (excMatch & e) { \
 	} catch (...) { \
-	    assert(0); \
+	    assert(0 && "Wrong exception caught"); \
 	} \
     }
 #define BOOST_CHECK_NO_THROW(stmt) { \
@@ -89,23 +92,30 @@ BOOST_AUTO_TEST_CASE(univalue_typecheck)
     BOOST_CHECK(v1.isNum());
     BOOST_CHECK_THROW(v1.get_bool(), std::runtime_error);
 
+    {
+        UniValue v_negative;
+        BOOST_CHECK(v_negative.setNumStr("-1"));
+        BOOST_CHECK_THROW(v_negative.getInt<uint8_t>(), std::runtime_error);
+        BOOST_CHECK_EQUAL(v_negative.getInt<int8_t>(), -1);
+    }
+
     UniValue v2;
     BOOST_CHECK(v2.setBool(true));
     BOOST_CHECK_EQUAL(v2.get_bool(), true);
-    BOOST_CHECK_THROW(v2.get_int(), std::runtime_error);
+    BOOST_CHECK_THROW(v2.getInt<int>(), std::runtime_error);
 
     UniValue v3;
     BOOST_CHECK(v3.setNumStr("32482348723847471234"));
-    BOOST_CHECK_THROW(v3.get_int64(), std::runtime_error);
+    BOOST_CHECK_THROW(v3.getInt<int64_t>(), std::runtime_error);
     BOOST_CHECK(v3.setNumStr("1000"));
-    BOOST_CHECK_EQUAL(v3.get_int64(), 1000);
+    BOOST_CHECK_EQUAL(v3.getInt<int64_t>(), 1000);
 
     UniValue v4;
     BOOST_CHECK(v4.setNumStr("2147483648"));
-    BOOST_CHECK_EQUAL(v4.get_int64(), 2147483648);
-    BOOST_CHECK_THROW(v4.get_int(), std::runtime_error);
+    BOOST_CHECK_EQUAL(v4.getInt<int64_t>(), 2147483648);
+    BOOST_CHECK_THROW(v4.getInt<int>(), std::runtime_error);
     BOOST_CHECK(v4.setNumStr("1000"));
-    BOOST_CHECK_EQUAL(v4.get_int(), 1000);
+    BOOST_CHECK_EQUAL(v4.getInt<int>(), 1000);
     BOOST_CHECK_THROW(v4.get_str(), std::runtime_error);
     BOOST_CHECK_EQUAL(v4.get_real(), 1000);
     BOOST_CHECK_THROW(v4.get_array(), std::runtime_error);
@@ -117,10 +127,10 @@ BOOST_AUTO_TEST_CASE(univalue_typecheck)
     BOOST_CHECK(v5.read("[true, 10]"));
     BOOST_CHECK_NO_THROW(v5.get_array());
     std::vector<UniValue> vals = v5.getValues();
-    BOOST_CHECK_THROW(vals[0].get_int(), std::runtime_error);
+    BOOST_CHECK_THROW(vals[0].getInt<int>(), std::runtime_error);
     BOOST_CHECK_EQUAL(vals[0].get_bool(), true);
 
-    BOOST_CHECK_EQUAL(vals[1].get_int(), 10);
+    BOOST_CHECK_EQUAL(vals[1].getInt<int>(), 10);
     BOOST_CHECK_THROW(vals[1].get_bool(), std::runtime_error);
 }
 
@@ -209,19 +219,31 @@ BOOST_AUTO_TEST_CASE(univalue_array)
     BOOST_CHECK(arr.push_back((int64_t) -400LL));
     BOOST_CHECK(arr.push_back((int) -401));
     BOOST_CHECK(arr.push_back(-40.1));
+    BOOST_CHECK(arr.push_back(true));
 
     BOOST_CHECK_EQUAL(arr.empty(), false);
-    BOOST_CHECK_EQUAL(arr.size(), 9);
+    BOOST_CHECK_EQUAL(arr.size(), 10);
 
     BOOST_CHECK_EQUAL(arr[0].getValStr(), "1023");
+    BOOST_CHECK_EQUAL(arr[0].getType(), UniValue::VNUM);
     BOOST_CHECK_EQUAL(arr[1].getValStr(), "zippy");
+    BOOST_CHECK_EQUAL(arr[1].getType(), UniValue::VSTR);
     BOOST_CHECK_EQUAL(arr[2].getValStr(), "pippy");
+    BOOST_CHECK_EQUAL(arr[2].getType(), UniValue::VSTR);
     BOOST_CHECK_EQUAL(arr[3].getValStr(), "boing");
+    BOOST_CHECK_EQUAL(arr[3].getType(), UniValue::VSTR);
     BOOST_CHECK_EQUAL(arr[4].getValStr(), "going");
+    BOOST_CHECK_EQUAL(arr[4].getType(), UniValue::VSTR);
     BOOST_CHECK_EQUAL(arr[5].getValStr(), "400");
+    BOOST_CHECK_EQUAL(arr[5].getType(), UniValue::VNUM);
     BOOST_CHECK_EQUAL(arr[6].getValStr(), "-400");
+    BOOST_CHECK_EQUAL(arr[6].getType(), UniValue::VNUM);
     BOOST_CHECK_EQUAL(arr[7].getValStr(), "-401");
+    BOOST_CHECK_EQUAL(arr[7].getType(), UniValue::VNUM);
     BOOST_CHECK_EQUAL(arr[8].getValStr(), "-40.1");
+    BOOST_CHECK_EQUAL(arr[8].getType(), UniValue::VNUM);
+    BOOST_CHECK_EQUAL(arr[9].getValStr(), "1");
+    BOOST_CHECK_EQUAL(arr[9].getType(), UniValue::VBOOL);
 
     BOOST_CHECK_EQUAL(arr[999].getValStr(), "");
 
@@ -260,6 +282,12 @@ BOOST_AUTO_TEST_CASE(univalue_object)
     strKey = "temperature";
     BOOST_CHECK(obj.pushKV(strKey, (double) 90.012));
 
+    strKey = "moon";
+    BOOST_CHECK(obj.pushKV(strKey, true));
+
+    strKey = "spoon";
+    BOOST_CHECK(obj.pushKV(strKey, false));
+
     UniValue obj2(UniValue::VOBJ);
     BOOST_CHECK(obj2.pushKV("cat1", 9000));
     BOOST_CHECK(obj2.pushKV("cat2", 12345));
@@ -267,7 +295,7 @@ BOOST_AUTO_TEST_CASE(univalue_object)
     BOOST_CHECK(obj.pushKVs(obj2));
 
     BOOST_CHECK_EQUAL(obj.empty(), false);
-    BOOST_CHECK_EQUAL(obj.size(), 9);
+    BOOST_CHECK_EQUAL(obj.size(), 11);
 
     BOOST_CHECK_EQUAL(obj["age"].getValStr(), "100");
     BOOST_CHECK_EQUAL(obj["first"].getValStr(), "John");
@@ -276,6 +304,8 @@ BOOST_AUTO_TEST_CASE(univalue_object)
     BOOST_CHECK_EQUAL(obj["time"].getValStr(), "3600");
     BOOST_CHECK_EQUAL(obj["calories"].getValStr(), "12");
     BOOST_CHECK_EQUAL(obj["temperature"].getValStr(), "90.012");
+    BOOST_CHECK_EQUAL(obj["moon"].getValStr(), "1");
+    BOOST_CHECK_EQUAL(obj["spoon"].getValStr(), "");
     BOOST_CHECK_EQUAL(obj["cat1"].getValStr(), "9000");
     BOOST_CHECK_EQUAL(obj["cat2"].getValStr(), "12345");
 
@@ -288,6 +318,8 @@ BOOST_AUTO_TEST_CASE(univalue_object)
     BOOST_CHECK(obj.exists("time"));
     BOOST_CHECK(obj.exists("calories"));
     BOOST_CHECK(obj.exists("temperature"));
+    BOOST_CHECK(obj.exists("moon"));
+    BOOST_CHECK(obj.exists("spoon"));
     BOOST_CHECK(obj.exists("cat1"));
     BOOST_CHECK(obj.exists("cat2"));
 
@@ -301,6 +333,8 @@ BOOST_AUTO_TEST_CASE(univalue_object)
     objTypes["time"] = UniValue::VNUM;
     objTypes["calories"] = UniValue::VNUM;
     objTypes["temperature"] = UniValue::VNUM;
+    objTypes["moon"] = UniValue::VBOOL;
+    objTypes["spoon"] = UniValue::VBOOL;
     objTypes["cat1"] = UniValue::VNUM;
     objTypes["cat2"] = UniValue::VNUM;
     BOOST_CHECK(obj.checkObject(objTypes));

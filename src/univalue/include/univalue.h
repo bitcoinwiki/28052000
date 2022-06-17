@@ -1,21 +1,19 @@
 // Copyright 2014 BitPay Inc.
 // Copyright 2015 Bitcoin Core Developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or https://opensource.org/licenses/mit-license.php.
 
-#ifndef __UNIVALUE_H__
-#define __UNIVALUE_H__
+#ifndef BITCOIN_UNIVALUE_INCLUDE_UNIVALUE_H
+#define BITCOIN_UNIVALUE_INCLUDE_UNIVALUE_H
 
-#include <stdint.h>
-#include <string.h>
-
-#include <string>
-#include <vector>
+#include <charconv>
+#include <cstdint>
+#include <cstring>
 #include <map>
-#include <cassert>
-
-#include <sstream>        // .get_int64()
-#include <utility>        // std::pair
+#include <stdexcept>
+#include <string>
+#include <type_traits>
+#include <vector>
 
 class UniValue {
 public:
@@ -48,7 +46,6 @@ public:
         std::string s(val_);
         setStr(s);
     }
-    ~UniValue() {}
 
     void clear();
 
@@ -86,58 +83,10 @@ public:
     bool isObject() const { return (typ == VOBJ); }
 
     bool push_back(const UniValue& val);
-    bool push_back(const std::string& val_) {
-        UniValue tmpVal(VSTR, val_);
-        return push_back(tmpVal);
-    }
-    bool push_back(const char *val_) {
-        std::string s(val_);
-        return push_back(s);
-    }
-    bool push_back(uint64_t val_) {
-        UniValue tmpVal(val_);
-        return push_back(tmpVal);
-    }
-    bool push_back(int64_t val_) {
-        UniValue tmpVal(val_);
-        return push_back(tmpVal);
-    }
-    bool push_back(int val_) {
-        UniValue tmpVal(val_);
-        return push_back(tmpVal);
-    }
-    bool push_back(double val_) {
-        UniValue tmpVal(val_);
-        return push_back(tmpVal);
-    }
     bool push_backV(const std::vector<UniValue>& vec);
 
     void __pushKV(const std::string& key, const UniValue& val);
     bool pushKV(const std::string& key, const UniValue& val);
-    bool pushKV(const std::string& key, const std::string& val_) {
-        UniValue tmpVal(VSTR, val_);
-        return pushKV(key, tmpVal);
-    }
-    bool pushKV(const std::string& key, const char *val_) {
-        std::string _val(val_);
-        return pushKV(key, _val);
-    }
-    bool pushKV(const std::string& key, int64_t val_) {
-        UniValue tmpVal(val_);
-        return pushKV(key, tmpVal);
-    }
-    bool pushKV(const std::string& key, uint64_t val_) {
-        UniValue tmpVal(val_);
-        return pushKV(key, tmpVal);
-    }
-    bool pushKV(const std::string& key, int val_) {
-        UniValue tmpVal((int64_t)val_);
-        return pushKV(key, tmpVal);
-    }
-    bool pushKV(const std::string& key, double val_) {
-        UniValue tmpVal(val_);
-        return pushKV(key, tmpVal);
-    }
     bool pushKVs(const UniValue& obj);
 
     std::string write(unsigned int prettyIndent = 0,
@@ -164,84 +113,29 @@ public:
     // value is of unexpected type
     const std::vector<std::string>& getKeys() const;
     const std::vector<UniValue>& getValues() const;
+    template <typename Int>
+    auto getInt() const
+    {
+        static_assert(std::is_integral<Int>::value);
+        if (typ != VNUM) {
+            throw std::runtime_error("JSON value is not an integer as expected");
+        }
+        Int result;
+        const auto [first_nonmatching, error_condition] = std::from_chars(val.data(), val.data() + val.size(), result);
+        if (first_nonmatching != val.data() + val.size() || error_condition != std::errc{}) {
+            throw std::runtime_error("JSON integer out of range");
+        }
+        return result;
+    }
     bool get_bool() const;
     const std::string& get_str() const;
-    int get_int() const;
-    int64_t get_int64() const;
     double get_real() const;
     const UniValue& get_obj() const;
     const UniValue& get_array() const;
 
     enum VType type() const { return getType(); }
-    bool push_back(std::pair<std::string,UniValue> pear) {
-        return pushKV(pear.first, pear.second);
-    }
     friend const UniValue& find_value( const UniValue& obj, const std::string& name);
 };
-
-//
-// The following were added for compatibility with json_spirit.
-// Most duplicate other methods, and should be removed.
-//
-static inline std::pair<std::string,UniValue> Pair(const char *cKey, const char *cVal)
-{
-    std::string key(cKey);
-    UniValue uVal(cVal);
-    return std::make_pair(key, uVal);
-}
-
-static inline std::pair<std::string,UniValue> Pair(const char *cKey, std::string strVal)
-{
-    std::string key(cKey);
-    UniValue uVal(strVal);
-    return std::make_pair(key, uVal);
-}
-
-static inline std::pair<std::string,UniValue> Pair(const char *cKey, uint64_t u64Val)
-{
-    std::string key(cKey);
-    UniValue uVal(u64Val);
-    return std::make_pair(key, uVal);
-}
-
-static inline std::pair<std::string,UniValue> Pair(const char *cKey, int64_t i64Val)
-{
-    std::string key(cKey);
-    UniValue uVal(i64Val);
-    return std::make_pair(key, uVal);
-}
-
-static inline std::pair<std::string,UniValue> Pair(const char *cKey, bool iVal)
-{
-    std::string key(cKey);
-    UniValue uVal(iVal);
-    return std::make_pair(key, uVal);
-}
-
-static inline std::pair<std::string,UniValue> Pair(const char *cKey, int iVal)
-{
-    std::string key(cKey);
-    UniValue uVal(iVal);
-    return std::make_pair(key, uVal);
-}
-
-static inline std::pair<std::string,UniValue> Pair(const char *cKey, double dVal)
-{
-    std::string key(cKey);
-    UniValue uVal(dVal);
-    return std::make_pair(key, uVal);
-}
-
-static inline std::pair<std::string,UniValue> Pair(const char *cKey, const UniValue& uVal)
-{
-    std::string key(cKey);
-    return std::make_pair(key, uVal);
-}
-
-static inline std::pair<std::string,UniValue> Pair(std::string key, const UniValue& uVal)
-{
-    return std::make_pair(key, uVal);
-}
 
 enum jtokentype {
     JTOK_ERR        = -1,
@@ -300,4 +194,4 @@ extern const UniValue NullUniValue;
 
 const UniValue& find_value( const UniValue& obj, const std::string& name);
 
-#endif // __UNIVALUE_H__
+#endif // BITCOIN_UNIVALUE_INCLUDE_UNIVALUE_H

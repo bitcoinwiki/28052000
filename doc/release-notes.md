@@ -1,12 +1,16 @@
-(note: this is a temporary file, to be added-to by anybody, and moved to
-release-notes at release time)
+*The release notes draft is a temporary file that can be added to by anyone. See
+[/doc/developer-notes.md#release-notes](/doc/developer-notes.md#release-notes)
+for the process.*
+
+*version* Release Notes Draft
+===============================
 
 Bitcoin Core version *version* is now available from:
 
-  <https://bitcoin.org/bin/bitcoin-core-*version*/>
+  <https://bitcoincore.org/bin/bitcoin-core-*version*/>
 
-This is a new major version release, including new features, various bugfixes
-and performance improvements, as well as updated translations.
+This release includes new features, various bug fixes and performance
+improvements, as well as updated translations.
 
 Please report bugs using the issue tracker at GitHub:
 
@@ -20,57 +24,91 @@ How to Upgrade
 ==============
 
 If you are running an older version, shut it down. Wait until it has completely
-shut down (which might take a few minutes for older versions), then run the 
+shut down (which might take a few minutes in some cases), then run the
 installer (on Windows) or just copy over `/Applications/Bitcoin-Qt` (on Mac)
 or `bitcoind`/`bitcoin-qt` (on Linux).
 
-The first time you run version 0.15.0, your chainstate database will be converted to a
-new format, which will take anywhere from a few minutes to half an hour,
-depending on the speed of your machine.
-
-Note that the block database format also changed in version 0.8.0 and there is no
-automatic upgrade code from before version 0.8 to version 0.15.0. Upgrading
-directly from 0.7.x and earlier without redownloading the blockchain is not supported.
-However, as usual, old wallet versions are still supported.
-
-Downgrading warning
--------------------
-
-The chainstate database for this release is not compatible with previous
-releases, so if you run 0.15 and then decide to switch back to any
-older version, you will need to run the old release with the `-reindex-chainstate`
-option to rebuild the chainstate data structures in the old format.
-
-If your node has pruning enabled, this will entail re-downloading and
-processing the entire blockchain.
+Upgrading directly from a version of Bitcoin Core that has reached its EOL is
+possible, but it might take some time if the data directory needs to be migrated. Old
+wallet versions of Bitcoin Core are generally supported.
 
 Compatibility
 ==============
 
-Bitcoin Core is extensively tested on multiple operating systems using
-the Linux kernel, macOS 10.8+, and Windows Vista and later. Windows XP is not supported.
-
-Bitcoin Core should also work on most other Unix-like systems but is not
-frequently tested on them.
+Bitcoin Core is supported and extensively tested on operating systems
+using the Linux kernel, macOS 10.15+, and Windows 7 and newer.  Bitcoin
+Core should also work on most other Unix-like systems but is not as
+frequently tested on them.  It is not recommended to use Bitcoin Core on
+unsupported systems.
 
 Notable changes
 ===============
 
-HD-wallets by default
----------------------
-Due to a backward-incompatible change in the wallet database, wallets created
-with version 0.16.0 will be rejected by previous versions. Also, version 0.16.0
-will only create hierarchical deterministic (HD) wallets.
+P2P and network changes
+-----------------------
 
-Low-level RPC changes
-----------------------
-- The deprecated RPC `getinfo` was removed. It is recommended that the more specific RPCs are used:
-  * `getblockchaininfo`
-  * `getnetworkinfo`
-  * `getwalletinfo`
-  * `getmininginfo`
-- The wallet RPC `getreceivedbyaddress` will return an error if called with an address not in the wallet.
+Updated RPCs
+------------
 
+- The `-deprecatedrpc=softforks` configuration option has been removed.  The
+  RPC `getblockchaininfo` no longer returns the `softforks` field, which was
+  previously deprecated in 23.0. (#23508) Information on soft fork status is
+  now only available via the `getdeploymentinfo` RPC.
+
+- The `deprecatedrpc=exclude_coinbase` configuration option has been removed.
+  The `receivedby` RPCs (`listreceivedbyaddress`, `listreceivedbylabel`,
+  `getreceivedbyaddress` and `getreceivedbylabel`) now always return results
+  accounting for received coins from coinbase outputs, without an option to
+  change that behaviour. Excluding coinbases was previously deprecated in 23.0.
+  (#25171)
+
+- The `deprecatedrpc=fees` configuration option has been removed. The top-level
+  fee fields `fee`, `modifiedfee`, `ancestorfees` and `descendantfees` are no
+  longer returned by RPCs `getmempoolentry`, `getrawmempool(verbose=true)`,
+  `getmempoolancestors(verbose=true)` and `getmempooldescendants(verbose=true)`.
+  The same fee fields can be accessed through the `fees` object in the result.
+  The top-level fee fields were previously deprecated in 23.0. (#25204)
+
+Changes to wallet related RPCs can be found in the Wallet section below.
+
+New RPCs
+--------
+
+Build System
+------------
+
+Updated settings
+----------------
+
+
+Changes to GUI or wallet related settings can be found in the GUI or Wallet section below.
+
+New settings
+------------
+
+Tools and Utilities
+-------------------
+
+Wallet
+------
+
+- RPC `getreceivedbylabel` now returns an error, "Label not found
+  in wallet" (-4), if the label is not in the address book. (#25122)
+
+GUI changes
+-----------
+
+Low-level changes
+=================
+
+RPC
+---
+
+Tests
+-----
+
+*version* change log
+====================
 
 Credits
 =======
@@ -78,4 +116,5 @@ Credits
 Thanks to everyone who directly contributed to this release:
 
 
-As well as everyone that helped translating on [Transifex](https://www.transifex.com/projects/p/bitcoin/).
+As well as to everyone that helped with translations on
+[Transifex](https://www.transifex.com/bitcoin/bitcoin/).
