@@ -1,0 +1,6 @@
+Change date format to ISO 8601
+This came up on the mailing list.
+
+yyyy-mm-dd (ISO 8601) is the internationally accepted format for numeric
+dates. This commit changes all BIPs to use that instead of dd-mm-yyyy.
+It also updates BIP 0001 to prescribe the new format.
